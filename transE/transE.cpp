@@ -11,14 +11,14 @@ using namespace std;
 
 const float pi = 3.141592653589793238462643383;
 
-int transeThreads = 8;
-int transeTrainTimes = 3000;
+int transeThreads = 16;
+int transeTrainTimes = 10000;
 int nbatches = 1;
 int dimension = 50;
 float transeAlpha = 0.001;
 float margin = 1;
 
-string inPath = "/data/disk1/private/jinhuiming/FB15K/";
+string inPath = "./";
 string outPath = "./";
 
 int *lefHead, *rigHead;
@@ -110,7 +110,7 @@ void init() {
 			relationVec[i * dimension + ii] = randn(0, 1.0 / dimension, -6 / sqrt(dimension), 6 / sqrt(dimension));
 	}
 
-	fin = fopen((inPath + "entity2id.txt").c_str(), "r");
+	fin = fopen((inPath + "entity_trans2id.txt").c_str(), "r");
 	tmp = fscanf(fin, "%d", &entityTotal);
 	fclose(fin);
 
@@ -121,7 +121,7 @@ void init() {
 		norm(entityVec+i*dimension);
 	}
 
-	fin = fopen((inPath + "triple2id.txt").c_str(), "r");
+	fin = fopen((inPath + "triple_trans_train.txt").c_str(), "r");
 	tmp = fscanf(fin, "%d", &tripleTotal);
 	trainHead = (Triple *)calloc(tripleTotal, sizeof(Triple));
 	trainTail = (Triple *)calloc(tripleTotal, sizeof(Triple));
@@ -147,8 +147,8 @@ void init() {
 	rigHead = (int *)calloc(entityTotal, sizeof(int));
 	lefTail = (int *)calloc(entityTotal, sizeof(int));
 	rigTail = (int *)calloc(entityTotal, sizeof(int));
-	memset(rigHead, -1, sizeof(rigHead));
-	memset(rigTail, -1, sizeof(rigTail));
+	memset(rigHead, -1, sizeof(int)*entityTotal);
+	memset(rigTail, -1, sizeof(int)*entityTotal);
 	for (int i = 1; i < tripleTotal; i++) {
 		if (trainTail[i].t != trainTail[i - 1].t) {
 			rigTail[trainTail[i - 1].t] = i - 1;
@@ -306,6 +306,7 @@ void* transetrainMode(void *con) {
 		norm(entityVec + dimension * trainList[i].t);
 		norm(entityVec + dimension * j);
 	}
+	pthread_exit(NULL);
 }
 
 void* train_transe(void *con) {
@@ -316,14 +317,15 @@ void* train_transe(void *con) {
 		res = 0;
 		for (int batch = 0; batch < nbatches; batch++) {
 			pthread_t *pt = (pthread_t *)malloc(transeThreads * sizeof(pthread_t));
-			for (int a = 0; a < transeThreads; a++)
+			for (long a = 0; a < transeThreads; a++)
 				pthread_create(&pt[a], NULL, transetrainMode,  (void*)a);
-			for (int a = 0; a < transeThreads; a++)
+			for (long a = 0; a < transeThreads; a++)
 				pthread_join(pt[a], NULL);
 			free(pt);
 		}
 		printf("epoch %d %f\n", epoch, res);
 	}
+	pthread_exit(NULL);
 }
 
 /*
@@ -331,8 +333,8 @@ void* train_transe(void *con) {
 */
 
 void out_transe() {
-		FILE* f2 = fopen((outPath + "relation2vec.bern").c_str(), "w");
-		FILE* f3 = fopen((outPath + "entity2vec.bern").c_str(), "w");
+		FILE* f2 = fopen((outPath + "relation2vec.txt").c_str(), "w");
+		FILE* f3 = fopen((outPath + "entity_trans2vec.txt").c_str(), "w");
 		for (int i=0; i < relationTotal; i++) {
 			int last = dimension * i;
 			for (int ii = 0; ii < dimension; ii++)
